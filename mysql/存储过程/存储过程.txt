@@ -1,0 +1,352 @@
+一、创建语法
+
+CREATE PROCEDURE 存储过程名(参数列表)
+BEGIN
+	方法体(存储过程体:一组合法的sql语句)
+END
+
+参数列表包含3部分:
+参数模式 参数名称 参数类型
+举例:
+IN stuname VARCHAR(20)
+
+参数模式:
+IN: 该参数可以作为输入, 该参数需要调用方参值
+OUT: 该参数可以作为输出, 该参数可以作为返回值
+INOUT: 该参数既可以作为输入又可以作为输出，也就是该参数既需要传入值,
+又可以返回值
+
+.如果存储过程体仅有一句话，BEGIN END可以省略
+.存储过程体中的每条SQL语句的结尾要求必须加分号
+.存储过程的结尾可以使用DELIMITER重新设置
+
+语法：
+DELIMITER 结束标记
+DELIMITER $
+
+调用语法
+call 存储过程名( 实参列表 )
+
+测试表:
+CREATE TABLE `s_test` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `username` varchar(20) NOT NULL,
+  `password` varchar(20) NOT NULL,
+  `add_time` int(11) NOT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=MyISAM DEFAULT CHARSET=utf8
+
+1，空参数，插入5条记录到s_test
+
+定义：
+DELIMITER $
+CREATE PROCEDURE myproccess1()
+BEGIN
+	INSERT INTO s_test( `username`, `password`, `add_time`) VALUES( 'ghostwu1', 'abc123', UNIX_TIMESTAMP(NOW()) ),
+	( 'ghostwu2', 'abc123', UNIX_TIMESTAMP(NOW()) ),( 'ghostwu3', 'abc123', UNIX_TIMESTAMP(NOW()) ),
+	( 'ghostwu', 'abc123', UNIX_TIMESTAMP(NOW()) ),( 'ghostwu', 'abc123', UNIX_TIMESTAMP(NOW()) );
+END $
+调用:
+CALL myproccess1() $
+
+2，IN参数实例,查询ecshop数据库的ecs_users user_id=1的用户
+DELIMITER $
+CREATE PROCEDURE getUserById( in i_user_id mediumint(8) )
+BEGIN
+	SELECT * FROM ecs_users WHERE user_id = i_user_id;
+END $
+
+CALL getUserById( 1 ) $
+
+3, 2个IN参数实例, 查询输入的用户名或者密码是否正确
+DELIMITER $
+CREATE PROCEDURE login( in i_username varchar(60), in i_password varchar( 32 ) )
+BEGIN
+	DECLARE result INT DEFAULT 0; #声明并初始化变量
+	SELECT COUNT( * ) into result #赋值
+	FROM ecs_users WHERE user_name = i_username and password = md5( i_password );
+
+	SELECT IF( result > 0, '成功', '失败' ); #使用变量判断
+END $
+
+CALL login( 'ghostwu', 'hello123' ) $
+
+4, out参数实例，根据用户名查询邮箱
+DELIMITER $
+CREATE PROCEDURE getUserEmailByName( in i_username varchar(60), out o_email varchar( 60 ) )
+BEGIN
+	SELECT email into o_email
+	FROM ecs_users WHERE user_name = i_username;
+END $
+
+#调用
+SET @email ='' $ #定义变量 用来接收存储过程返回值
+CALL getUserEmailByName( 'ghostwu', @email ) $
+SELECT @email $
+
+5, 2个out参数实例, 根据用户名查询邮箱和密码
+DELIMITER $
+CREATE PROCEDURE getUserInfoByName( in i_username varchar(60), out o_email varchar( 60 ), out o_password varchar( 32 ) )
+BEGIN
+	SELECT email, password into o_email, o_password
+	FROM ecs_users WHERE user_name = i_username;
+END $
+
+#调用
+CALL getUserInfoByName( 'ghostwu', @email, @password ) $ #可以不用定义变量,直接接收
+SELECT @email, @password $
+
+6, inout参数实例
+DELIMITER $
+CREATE PROCEDURE dealNum( inout io_n1 int, inout io_n2 int )
+BEGIN
+	set io_n1 = io_n1 * 2;
+	set io_n2 = io_n2 * 2;
+END $
+set @n1 = 10$
+set @n2 = 20$
+call dealNum( @n1, @n2 )$
+SELECT @n1, @n2 $
+
+
+二、删除存储过程
+语法: DROP PROCEDURE 存储过程名称
+
+三、查看存储过程
+语法：SHOW CREATE PROCEDURE 存储过程名称
+
+
+实例1：创建存储过程或者函数实现传入一个日期，格式化为xxxx年xx月xx日并返回
+DELIMITER $
+CREATE PROCEDURE my_formate_date( in i_date DATETIME, out o_str_date VARCHAR( 50 ) )
+BEGIN
+	SELECT DATE_FORMAT( i_date, '%Y年%m月%d日' ) into o_str_date;	
+END $
+
+call my_formate_date( '2018-08-20 12:03:40', @str )$
+SELECT @str $
+
+
+四、函数
+
+返回值区别：
+	存储过程: 可以有0个返回,也可以有多个返回，适合批量插入，批量更新，删除
+	函数: 有且仅有一个返回, 适合处理数据返回一个结果
+
+。创建语法
+CREATE FUNCTION 函数名( 参数列表 ) RETURNS 返回类型
+BEGIN
+	函数体
+END $
+
+注意：
+.参数列表包含2部分： 参数名 参数类型
+.函数体: 肯定要有return语句，如果没有会报错，
+	如果return语句没有放在函数体的最后也不报错，但不建议
+return 值;
+.函数体中仅有一句话，则可以省略begin end
+.使用delimiter语句设置结束标记
+
+。调用语法
+SELECT 函数名( 参数列表 )
+
+实例1：无参有返回.
+定义函数返回ecshop用户表的用户数量
+DELIMITER $
+CREATE FUNCTION countUsers() RETURNS INT
+BEGIN
+	DECLARE	c INT DEFAULT 0; #定义变量
+	SELECT COUNT(*) into c FROM ecs_users;
+	return c;
+END $
+SELECT countUsers() $
+
+实例2: 有参有返回
+根据用户名返回email
+DELIMITER $
+CREATE FUNCTION getUserEmailByName( username varchar(60) ) RETURNS VARCHAR(100)
+BEGIN
+	DECLARE	e varchar(100) DEFAULT '';
+	SELECT email into e FROM ecs_users WHERE user_name = username;
+	return e;
+END $
+SELECT getUserEmailByName( 'ghostwu' ) $
+
+五、查看函数定义
+SHOW CREATE FUNCTION 函数名称 
+
+六、删除函数
+DROP FUNCTION 函数名称 
+DROP FUNCTION getUserEmailByName $
+
+
+案例：计算两个数的和
+DROP FUNCTION test_sum $
+DELIMITER $
+CREATE FUNCTION test_sum( a INT, b INT ) RETURNS INT
+BEGIN
+	DECLARE	res INT DEFAULT 0;
+	set res=a+b;
+	return res;
+END $
+SELECT test_sum( 10, 20 ) $
+
+七、分支结构
+
+1, if函数
+语法: IF( 表达式1, 表达式2, 表达式3 )
+表达式1成立,执行表达式2,否则表达式3
+
+2，case结构
+case 表达式|变量|字段
+when 要判断的值1 then 返回的值1或者语句1;
+when 要判断的值2 then 返回的值2或者语句2;
+…
+else 要返回的值n或者语句n;
+end ;
+
+3，类似于多重if
+case 
+when 要判断的条件1 then 返回的值1或语句1;
+when 要判断的条件2 then 返回的值2或语句2;
+…
+else 要返回的值n或语句n;
+end case;
+
+特点：
+>可以作为表达式,嵌套在其他语句中使用，可以放在任何地方. BEGIN END中或者BEGIN END外面
+>可以作为独立的语句去使用，只能放在BEGIN END中
+>如果when满足条件，执行then，跳出case
+>如果都不满足when,执行else
+>else可以省略,如果else省略,所有then不满足,返回null
+
+
+案例：判断成绩等级
+DELIMITER $
+CREATE PROCEDURE print_score_level( IN score INT )
+BEGIN
+	CASE
+	WHEN score >= 90 AND score <= 100 THEN SELECT 'A';
+	WHEN score >= 80 THEN SELECT 'B';
+	WHEN score >= 70 THEN SELECT 'C';
+	WHEN score >= 60 THEN SELECT 'D';
+	ELSE SELECT 'E';
+	END CASE;
+END $
+CALL print_score_level( 90 ) $
+
+
+
+八、if实现多重分支
+
+语法:
+if 条件1 then 语句1;
+elseif 条件2 then 语句2;
+...
+[else 语句n;]
+end if;
+应用在BEGIN END中
+
+案例：
+DELIMITER $
+CREATE PROCEDURE judge_score_level( IN score INT )
+BEGIN
+	IF score >= 90 AND score <= 100 THEN SELECT 'A';
+	ELSEIF score >= 80 THEN SELECT 'B';
+	ELSEIF score >=70 THEN SELECT 'C';
+	ELSEIF score >=60 THEN SELECT 'D';
+	ELSE SELECT 'E';
+	END IF;
+END $
+CALL judge_score_level( 90 ) $
+
+九、循环结构
+分类：while, loop, repeat
+循环控制:
+iterate类似于continue;
+leave类似于break;
+
+while语法：
+[标签:]while 循环条件 do
+	循环体;
+end while[标签];
+
+loop语法:
+[标签:] loop
+	循环体;
+end loop[标签];
+应用：可以用来模拟简单的死循环
+
+repeat语法
+[标签:] repeat
+	循环体;
+until 结束循环的条件
+end repeat [标签];
+
+案例：批量插入数据
+DELIMITER $
+CREATE PROCEDURE batch_insert_data( IN times INT )
+BEGIN
+	DECLARE  i INT DEFAULT 1;
+	WHILE i <= times DO
+		INSERT INTO s_test( username, PASSWORD, add_time ) VALUES ( CONCAT( 'ghostwu' , i ),  CONCAT( 'ghostwu' , i ), UNIX_TIMESTAMP( NOW() ) );
+		SET i  = i + 1;
+	END WHILE;
+END $
+CALL batch_insert_data( 10 ) $
+
+
+案例：批量插入数据,加循环控制
+DELIMITER $
+CREATE PROCEDURE batch_insert_data( IN times INT )
+BEGIN
+	DECLARE  i INT DEFAULT 1;
+	a:WHILE i <= times DO
+		INSERT INTO s_test( username, PASSWORD, add_time ) VALUES ( CONCAT( 'ghostwu' , i ),  CONCAT( 'ghostwu' , i ), UNIX_TIMESTAMP( NOW() ) );
+		IF i >= 20 THEN LEAVE a; END IF;
+		SET i  = i + 1;
+	END WHILE a;
+END $
+CALL batch_insert_data( 100 ) $
+
+案例：批量插入数据,加循环控制,插入偶数次
+DELIMITER $
+CREATE PROCEDURE batch_insert_data( IN times INT )
+BEGIN
+	DECLARE  i INT DEFAULT 0;
+	a:WHILE i <= times DO
+		SET i  = i + 1;
+		IF MOD( i, 2 ) != 0 THEN ITERATE a; END IF;
+		INSERT INTO s_test( username, PASSWORD, add_time ) VALUES ( CONCAT( 'ghostwu' , i ), CONCAT( 'ghostwu' , i ), UNIX_TIMESTAMP( NOW() ) );
+	END WHILE a;
+END $
+CALL batch_insert_data( 100 ) $
+
+
+
+
+案例：插入指定数量的随机字符串(随机长度:1-20)
+
+CREATE TABLE `s_test2` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `content` varchar(20) NOT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=MyISAM DEFAULT CHARSET=utf8
+
+DELIMITER $
+CREATE PROCEDURE batch_insert_rand_str( IN times INT )
+BEGIN
+	DECLARE i INT DEFAULT 1;
+	DECLARE str VARCHAR(26) DEFAULT 'abcdefghijklmnopqrstuvwxyz';
+	DECLARE startIndex INT DEFAULT 1;
+	DECLARE len INT DEFAULT 1;
+	WHILE i <= times DO
+		SET startIndex = FLOOR( RAND() * 26 + 1 );
+		SET len = FLOOR( RAND() * abs( 20 - startIndex + 1 ) + 1 );
+		INSERT INTO s_test2( content ) VALUES( SUBSTR( str, startIndex, len ) );
+		SET i = i + 1;
+	END WHILE;
+END $
+CALL batch_insert_rand_str( 10 ) $
+
+
