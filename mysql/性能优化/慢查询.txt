@@ -1,0 +1,17 @@
+查看慢查询的时间标准
+SHOW VARIABLES LIKE '%long_query_time%'
+查看慢查询是否开启，以及日志的保存路径
+SHOW VARIABLES LIKE '%slow_query_log%'
+临时开启慢查询,重启之后,不生效,如果需要永久生效,需要设置my.cnf
+SET GLOBAL slow_query_log=1
+
+设置慢查询时间3秒
+set global long_query_time=3
+
+模拟: select sleep( 4 )
+
+查看慢查询的次数:
+SHOW GLOBAL STATUS LIKE '%slow_queries%'
+
+日志分析工具
+mysqldumpslow --help

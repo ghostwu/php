@@ -1,0 +1,77 @@
+索引的作用： 提高查找和排序的速度，是一种数据结构
+
+CREATE TABLE `staffs` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `name` varchar(24) NOT NULL DEFAULT '',
+  `age` int(11) NOT NULL DEFAULT '0',
+  `pos` varchar(20) NOT NULL DEFAULT '',
+  `add_time` int(11) NOT NULL COMMENT '入职时间',
+  PRIMARY KEY (`id`)
+) ENGINE=MyISAM DEFAULT CHARSET=utf8
+
+insert into staffs( name, age, pos, add_time ) values( 'z3', 22, 'manager', UNIX_TIMESTAMP(NOW()) );
+insert into staffs( name, age, pos, add_time ) values( 'july', 23, 'dev', UNIX_TIMESTAMP(NOW()) );
+insert into staffs( name, age, pos, add_time ) values( '2000', 23, 'dev', UNIX_TIMESTAMP(NOW()) );
+
+create index idx_staffs_nameAgePos on staffs( name, age, pos );
+
+案例：
+
+用到索引
+explain select * from staffs where name = 'july'
+explain select * from staffs where name = 'july' and age = 23
+EXPLAIN SELECT * FROM staffs WHERE NAME = 'july' AND age = 23 AND pos='dev'
+
+#只用到第一个name的索引
+EXPLAIN SELECT * FROM staffs WHERE NAME='july' AND pos = 'dev'
+
+没有使用到索引
+EXPLAIN SELECT * FROM staffs WHERE age = 23 AND pos = 'dev'
+EXPLAIN SELECT * FROM staffs WHERE pos = 'dev'
+
+1，全值匹配我最爱, 完全匹配复合索引(多列索引)
+2，最左匹配原则：如果索引了多列,要遵守最左前缀法则,指的是查询从索引的最左前列开始并且不跳过索引中的列
+	通俗点讲:
+		.带头大哥不能死
+		.中间兄弟不能没有
+3，不要在索引列上使用函数，计算，或者自动，手动类型转换，否则索引失效
+如：
+EXPLAIN SELECT * FROM staffs WHERE NAME = 'july'
+EXPLAIN  SELECT * FROM staffs WHERE LEFT( NAME, 4 ) = 'july'
+
+4, 范围之后全失效
+EXPLAIN SELECT * FROM staffs WHERE NAME = 'july' AND age > 20 AND pos = 'dev';
+pos列上的索引失效
+
+5，如果可能，尽量少用*, 查询字段与索引列对应，产生覆盖索引
+EXPLAIN SELECT * FROM staffs WHERE NAME ='july' AND age = 23 AND pos  = 'dev'
+下面这句的extra会出现using index,性能更好
+EXPLAIN SELECT NAME, age, pos FROM staffs WHERE NAME ='july' AND age = 23 AND pos  = 'dev'
+
+6, mysql在使用不等于(!=或者<>)的时候无法使用索引会导致全表扫描
+如：EXPLAIN SELECT * FROM staffs WHERE NAME != 'july'
+如：EXPLAIN SELECT * FROM staffs WHERE NAME <> 'july'
+
+7, is null, is not null也无法使用索引
+如:EXPLAIN SELECT * FROM staffs WHERE NAME IS NULL
+EXPLAIN SELECT * FROM staffs WHERE NAME IS NOT NULL
+
+8，like以通配符开头('%abc...' ),mysql索引失效，会变成全表扫描
+如:
+type:all
+	EXPLAIN SELECT * FROM staffs WHERE NAME LIKE '%july%'
+	EXPLAIN SELECT * FROM staffs WHERE NAME LIKE '%july'
+type:range
+	EXPLAIN SELECT * FROM staffs WHERE NAME LIKE 'july%'
+
+9，字符串不加单引号，导致索引失效
+索引失效，全表扫描
+EXPLAIN SELECT * FROM staffs WHERE NAME = 2000
+索引有效
+EXPLAIN SELECT * FROM staffs WHERE NAME = '2000'
+
+10，少用or，用它来连接时会索引失效
+索引失效
+EXPLAIN SELECT * FROM staffs WHERE NAME = 'july' OR age = 23
+
+

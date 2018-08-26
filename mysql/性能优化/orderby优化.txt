@@ -1,0 +1,26 @@
+CREATE TABLE `tbla` (
+  `age` int(11) DEFAULT NULL,
+  `birth` int(11) DEFAULT NULL
+) ENGINE=MyISAM DEFAULT CHARSET=utf8
+
+
+INSERT INTO tbla( age, birth ) VALUES( 22, UNIX_TIMESTAMP(NOW()) );
+INSERT INTO tbla( age, birth ) VALUES( 23, UNIX_TIMESTAMP(NOW()) );
+INSERT INTO tbla( age, birth ) VALUES( 24, UNIX_TIMESTAMP(NOW()) );
+
+创建索引
+create index idx_a_ageBirth on tbla( age, birth );
+
+
+不会产生filesort
+EXPLAIN SELECT * FROM tbla WHERE age > 20 ORDER BY age;
+EXPLAIN SELECT * FROM tbla WHERE age > 20 ORDER BY age,birth
+EXPLAIN SELECT * FROM tbla WHERE birth > 1535177813 ORDER BY age
+
+产生filesort:
+EXPLAIN SELECT * FROM tbla WHERE age > 20 ORDER BY birth
+EXPLAIN SELECT * FROM tbla WHERE age > 20 ORDER BY birth,age
+EXPLAIN SELECT * FROM tbla WHERE birth > 1535177813 ORDER BY birth
+EXPLAIN SELECT * FROM tbla ORDER BY age ASC, birth DESC
+
+

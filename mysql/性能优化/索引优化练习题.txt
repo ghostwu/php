@@ -1,0 +1,87 @@
+
+CREATE TABLE `test03` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `c1` char(10) DEFAULT NULL,
+  `c2` char(10) DEFAULT NULL,
+  `c3` char(10) DEFAULT NULL,
+  `c4` char(10) DEFAULT NULL,
+  `c5` char(10) DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=MyISAM AUTO_INCREMENT=6 DEFAULT CHARSET=utf8
+
+INSERT INTO test03( c1, c2, c3, c4, c5 ) VALUES ( 'a1', 'a2', 'a3', 'a4', 'a5' );
+INSERT INTO test03( c1, c2, c3, c4, c5 ) VALUES ( 'b1', 'b2', 'b3', 'b4', 'b5' );
+INSERT INTO test03( c1, c2, c3, c4, c5 ) VALUES ( 'c1', 'c2', 'c3', 'c4', 'c5' );
+INSERT INTO test03( c1, c2, c3, c4, c5 ) VALUES ( 'd1', 'd2', 'd3', 'd4', 'd5' );
+INSERT INTO test03( c1, c2, c3, c4, c5 ) VALUES ( 'e1', 'e2', 'e3', 'e4', 'e5' );
+
+创建索引:
+CREATE INDEX idx_test03_c1234 ON test03( c1, c2, c3, c4 )
+
+1,索引生效：判断原则：最左匹配
+EXPLAIN SELECT * FROM test03 WHERE c1 = 'a1';
+EXPLAIN SELECT * FROM test03 WHERE c1 = 'a1' AND c2  = 'a2'
+EXPLAIN SELECT * FROM test03 WHERE c1 = 'a1' AND c2  = 'a2' AND c3 = 'a3'
+EXPLAIN SELECT * FROM test03 WHERE c1 = 'a1' AND c2  = 'a2' AND c3 = 'a3' AND c4 = 'a4'
+EXPLAIN SELECT * FROM test03 WHERE c1 = 'a1' AND c2  = 'a2'  and c4 = 'a4' AND c3 = 'a3'
+EXPLAIN SELECT * FROM test03 WHERE c4 = 'a4' AND c3  = 'a3'  AND c2 = 'a2' AND c1 = 'a1'
+
+备注：mysql优化器会自动优化复合索引，类似1+2+3, 1+3+2, 2+3+1 都是一样的，但是建议写的时候按照索引顺序，这样就不会浪费mysql优化器的优化时间
+
+2,索引生效，用到3个, c4用不到. 判断原则：范围之后全失效
+EXPLAIN SELECT * FROM test03 WHERE c1 = 'a1' AND c2  = 'a2'  AND c3 > 'a3' AND c4 = 'a4'
+
+3,索引生效，用到4个
+EXPLAIN SELECT * FROM test03 WHERE c1 = 'a1' AND c2  = 'a2'  AND c4 > 'a4' AND c3 = 'a3'
+优化器进行优化类似于
+EXPLAIN SELECT * FROM test03 WHERE c1 = 'a1' AND c2  = 'a2' AND c3 = 'a3' and c4 > 'a4'
+
+4,索引生效, 用到2个( c1, c2 ), c3也用到了，作用是排序
+
+EXPLAIN SELECT * FROM test03 WHERE c1 = 'a1' AND c2  = 'a2'  AND c4 = 'a4' ORDER BY c3;
+
+下面的语句效果，与上面类似
+EXPLAIN SELECT * FROM test03 WHERE c1 = 'a1' AND c2  = 'a2'  ORDER BY c3;
+
+extra(using filesort) 排序没有命中索引
+EXPLAIN SELECT * FROM test03 WHERE c1 = 'a1' AND c2  = 'a2'  ORDER BY c4;
+
+索引用到1个, 排序用到2个( 没有filesort )
+EXPLAIN SELECT * FROM test03 WHERE c1 = 'a1' AND c5  = 'a5'  ORDER BY c2, c3;
+
+索引用到1个, 排序没有命中索引( 出现filesort )
+EXPLAIN SELECT * FROM test03 WHERE c1 = 'a1' AND c5  = 'a5'  ORDER BY c3, c2;
+
+索引用到2个, 排序用到2个( 没有filesort )
+EXPLAIN SELECT * FROM test03 WHERE c1 = 'a1'  AND c2 = 'a2' ORDER BY c2, c3
+
+跟上面类似
+EXPLAIN SELECT * FROM test03 WHERE c1 = 'a1'  AND c2 = 'a2' AND c5 = 'a5' ORDER BY c2, c3
+
+对比下面两条语句:
+用到索引2个(c1,c2), 排序用到2个(不会出现filesort)
+EXPLAIN SELECT * FROM test03 WHERE c1 = 'a1'  AND c2 = 'a2' AND c5 = 'a5' ORDER BY c3, c2
+用到索引1个(c1), 排序没用命中索引(出现filesort)
+EXPLAIN SELECT * FROM test03 WHERE c1 = 'a1'  AND c5 = 'a5' ORDER BY c3, c2
+
+
+用到索引1个,没有出现filesort
+EXPLAIN SELECT * FROM test03 WHERE c1 = 'a1'  AND c4 = 'a4' GROUP BY c2, c3
+用到索引1个,出现filesort,还有临时表, 性能非常低下
+EXPLAIN SELECT * FROM test03 WHERE c1 = 'a1'  AND c4 = 'a4' GROUP BY c3, c2
+
+用到索引3个
+EXPLAIN SELECT * FROM test03 WHERE c1 = 'a1' AND c2 LIKE 'kk%' AND c3 = 'a3'
+用到索引1个
+EXPLAIN SELECT * FROM test03 WHERE c1 = 'a1' AND c2 LIKE '%kk' AND c3 = 'a3'
+用到索引1个
+EXPLAIN SELECT * FROM test03 WHERE c1 = 'a1' AND c2 LIKE '%kk%' AND c3 = 'a3'
+用到索引3个
+EXPLAIN SELECT * FROM test03 WHERE c1 = 'a1' AND c2 LIKE 'k%kk%' AND c3 = 'a3'
+
+
+
+
+
+
+

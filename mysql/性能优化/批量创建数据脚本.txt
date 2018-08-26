@@ -1,0 +1,12 @@
+CREATE TABLE `dept` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `deptno` mediumint(8) unsigned NOT NULL DEFAULT '0',
+  `dname` varchar(20) NOT NULL DEFAULT '',
+  `loc` varchar(13) NOT NULL DEFAULT '',
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8
+
+
+
+
+
